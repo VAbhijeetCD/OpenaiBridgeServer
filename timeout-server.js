@@ -184,10 +184,26 @@ app.post('/v1/chat/completions', async (req, res) => {
         .map(msg => msg.content)
         .filter(content => content && typeof content === 'string');
       
-      // Extract system messages if available
+      // Extract system messages if available and filter out unwanted content
       const systemMessages = req.body.messages
         .filter(msg => msg.role === 'system')
-        .map(msg => msg.content)
+        .map(msg => {
+          let content = msg.content;
+          
+          // Filter out the specified message pattern
+          if (content && typeof content === 'string') {
+            // Remove the agent character description section
+            const agentDescriptionPattern = /Agent character description:[\s\S]*?(?:No additional documentation provided|$)/;
+            content = content.replace(agentDescriptionPattern, '');
+            
+            // Also remove any patterns about attached documentation/knowledge base
+            const knowledgeBasePattern = /Everything following this section is the documentation knowledge base[\s\S]*?(?=\n\n|\n$|$)/g;
+            content = content.replace(knowledgeBasePattern, '');
+            
+            return content.trim();
+          }
+          return null;
+        })
         .filter(content => content && typeof content === 'string');
       
       // If there are no user messages, return null
@@ -207,7 +223,13 @@ app.post('/v1/chat/completions', async (req, res) => {
       
       // Add system messages as context/instructions
       if (systemMessages.length > 0) {
-        fullPrompt += `Instructions: ${systemMessages.join(' ')}\n\n`;
+        // Check if system message already contains "Instructions:" to avoid duplication
+        const systemText = systemMessages.join(' ');
+        if (systemText.trim().startsWith('Instructions:')) {
+          fullPrompt += `${systemText}\n\n`;
+        } else {
+          fullPrompt += `Instructions: ${systemText}\n\n`;
+        }
       }
       
       // Add all user messages
