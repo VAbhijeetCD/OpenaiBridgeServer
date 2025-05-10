@@ -35,6 +35,8 @@ exports.createChatCompletion = async (req, res, next) => {
       req.body.model || "gpt-3.5-turbo",
     );
 
+    console.log("Response", formattedResponse);
+
     console.log(
       "Sending response back to client",
       JSON.stringify(formattedResponse),
